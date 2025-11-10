@@ -3,80 +3,15 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "<my_proj>"
+name = "multiview_videos_viser"
 version = "0.0.0"
-description = "Add your description here"
+description = ""
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "hydra-core",  
-    "omegaconf",
-    "jaxtyping",
+    "numpy>=2.0",
+    "viser>=1.0",
+    "tqdm",
     "beartype",
-    "wandb",
-    "viser>=1",
-
-    # Detail is here: https://pytorch.org/get-started/previous-versions/
-    "torch==2.7.1+cu118 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "torchvision==0.22.1+cu118 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
-
-    # Libraries in git not in pypi.
-    #"lib1",
-
-    # Libraries in git not in pypi.
-    # If you possibly edit the repo, clone it to my_proj/submodules/lib2 and run "rm -rf my_proj/submodules/lib2/.git
-    #"lib2",
-
-    # Libraries which require build with --no-build-isolation.
-    #"lib3",
+    "jaxtyping",
 ]
-
-# If a conflict of composing top-level package occurred due to third party submodules,
-# uncomment this item to declare where top-level package is clearly.
-#[tool.setuptools]
-#packages = { find = { where = ["."], include = ["<my_proj>", "<my_proj>.*"] } }  # Flat layout.
-# If the project is structured as "src layout" like
-#     my_proj/
-#     ├─ src/
-#     │  └─ my_proj/
-#     │     ├─ __init__.py
-#     │     └─ ... 
-# packages = { find = { where = ["src"], include = ["<my_proj>", "<my_proj>.*"] } }
-
-[tool.uv.sources]
-torch = [{ index = "torch-cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'"}]
-torchvision = [{ index = "torch-cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'"}]
-#lib1 = { git = "<url/of/lib1_git_repo>", rev = "<commit ID>"}
-#lib2 = { path = "<path/to/dir>/lib2", editable = true }
-#lib3 = { path = "<path/to/dir>/lib3", editable = true }
-
-[[tool.uv.index]]
-name = "torch-cuda"
-url = "https://download.pytorch.org/whl/cu118"
-explicit = true
-
-[tool.uv]
-required-environments = [
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-]
-#no-build-isolation-package = ["lib3"]
-
-# If no-build-isolation-package is used, lib3 cannnot create its own build-time environment.
-# This item makes root build lib3 within structuring time of root environment, 
-# with awareness of lib3 build-time dependencies (, which is written in [build-system.requires] of lib3).
-#[[tool.uv.dependency-metadata]]
-#name = "lib3"
-#requires-dist = [
-#    <copy/contents/of/[build-system.requires]/of/lib3>
-#]
-
-# For pylance
-#[tool.pyright]
-#extraPaths = [
-#    "<my_proj>/submodules/<lib2>",
-#    "<my_proj>/submodules/<lib3>",
-#]
-
-
-# Reference
-# https://docs.astral.sh/uv/concepts/projects/layout/

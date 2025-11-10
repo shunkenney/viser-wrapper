@@ -1,3 +1,0 @@
-[submodule "my_proj/submodules/<lib2>"]
-	path = my_proj/_vendor/<lib2>
-	url = <url/of/git_repo>

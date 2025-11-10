@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "multiview_videos_viser"
+name = "viser-wrapper"
 version = "0.0.0"
 description = ""
 readme = "README.md"

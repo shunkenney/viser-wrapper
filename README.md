@@ -19,9 +19,9 @@ pip install <url/of/this/git-reop>
 from viser_wrapper import run_multiview_videos_viser
 
 _ = run_multiview_videos_viser(
-    points,
-    extrinsics,
-    intrinsics,
+    points,  # np.ndarray. Shape: (V, F, H, W, 3). Type: np.floating. V is number of videos (cameras), F is number of frames (timesteps).
+    extrinsics,  # np.ndarray. Shape: (V, F, 3, 4). Type: np.floating
+    intrinsics,  # np.ndarray. Shape: (V, F, 3, 3). Type: np.floating
 )
 ```
 Details are in docstrings of the function.

@@ -1,58 +1,27 @@
-# How to setup
-```bash
-bash setup.sh
+# How to install as a library
+## In uv project
+Add following components in root project.toml.
+```
+[project]
+dependencies = ["viser-wrapper"]
+
+[tool.uv.sources]
+viser-wrapper = { git = "<url/of/this/git-reop>"}
 ```
 
-# Project structure
-## Flat layout (for small project)
-```bash
-my_proj/
-    ├─ my_proj/
-    │   ├─ __init__.py
-    │   ├─ __main__.py
-    │   ├─ cli.py
-    │   ├─ submodules/
-    │   :
-    │
-    ├─ config/
-    ├─ scripts/
-    ├─ .gitignore
-    ├─ .gitmodules
-    ├─ README.md
-    └─ pyproject.toml
+## In pip project
 ```
-## Src layout (for big project)
-```bash
-my_proj/
-    ├─ src/
-    │   └─ my_proj/
-    │       ├─ __init__.py
-    │       ├─ __main__.py
-    :       :
+pip install <url/of/this/git-reop>
 ```
-
-# Emoji
-├─ └─ │
-✅❌🔥⚠️ℹ️🐛🚀😂❤️🤣😍😊🙏😘😎😢👍👏🎉🤔🙌😏😜😇🤗💕😱🤩🥰😔😌😴🤤🤮🤡💔🙇🤖
-
-# File sender
-## File sending from ssh server -> local PC.  
-At terminal of local PC.
-```bash
-rsync -avP \
-  -e 'ssh -T -c chacha20-poly1305@openssh.com -o Compression=no -o IPQoS=throughput' \
-  ubuntu@lecun:/home/ubuntu/slocal/any_file .
+# How to call functions
+## Multiview videos scene
 ```
+from viser_wrapper import run_multiview_videos_viser
 
-# Camera convention
-## OpenCV: Right-handed coordinate
-### +X - Right, +Y - Down, +Z - Forward
-- COLMAP: World to Camera
-- MapAnything: Camera to World
-- Viser: Camera to World
-- VGGT: World to Camera
-- ViPE: Camera to World ?
-
-## OpenGL/Blender: Left-handed coordinate
-### +X - Right, +Y - Down, -Z - Forward
-- Nerfstudio: 未確認
+_ = run_multiview_videos_viser(
+    points,
+    extrinsics,
+    intrinsics,
+)
+```
+Details are in docstrings of the function.

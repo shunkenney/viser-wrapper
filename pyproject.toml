@@ -15,3 +15,6 @@ dependencies = [
     "beartype",
     "jaxtyping",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]

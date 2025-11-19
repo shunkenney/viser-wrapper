@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=2.0",
+    "opencv-python",
     "viser>=1.0",
     "tqdm",
     "beartype",

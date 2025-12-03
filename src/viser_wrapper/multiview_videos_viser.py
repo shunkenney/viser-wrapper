@@ -7,21 +7,22 @@ from numpy.typing import NDArray
 from tqdm.auto import tqdm
 import viser
 import viser.transforms as viser_tf
+import cv2
 from jaxtyping import Float, Bool, Integer
 from beartype import beartype
 
 
 @beartype
 def run_multiview_videos_viser(
-    points: Sequence[Sequence[Float[NDArray[np.floating], "H W 3"]]],
-    extrinsics: Sequence[Sequence[Float[NDArray[np.floating], "3 4"]]],
-    intrinsics: Sequence[Sequence[Float[NDArray[np.floating], "3 3"]]],
-    masks: Sequence[Sequence[Bool[NDArray[np.bool_], "H W"]]] | None = None,
-    confs: Sequence[Sequence[Float[NDArray[np.floating], "H W"]]] | None = None,
-    images: Sequence[Sequence[Integer[NDArray[np.integer], "H W 3"]]] | None = None,
+    points: Sequence[Sequence[Float[NDArray[np.floating], "H W 3"]]] | Float[NDArray[np.floating], "V F H W 3"],
+    extrinsics: Sequence[Sequence[Float[NDArray[np.floating], "3 4"]]] | Float[NDArray[np.floating], "V F 3 4"],
+    intrinsics: Sequence[Sequence[Float[NDArray[np.floating], "3 3"]]] | Float[NDArray[np.floating], "V F 3 3"],
+    masks: Sequence[Sequence[Bool[NDArray[np.bool_], "H W"]]] | Float[NDArray[np.bool_], "V F H W"] | None = None,
+    confs: Sequence[Sequence[Float[NDArray[np.floating], "H W"]]] | Float[NDArray[np.floating], "V F H W"] | None = None,
+    images: Sequence[Sequence[Integer[NDArray[np.integer], "H W 3"]]] | Integer[NDArray[np.integer], "V F H W 3"] | None = None,
     port: int | None = 8080,
     init_conf_threshold: float | None = 0.0,  # represents percentage (e.g., 50 means filter lowest 50%)
-    background_mode: bool | None = True,
+    background_mode: bool | None = False,
     verbose: bool | None = True,
 ) -> viser.ViserServer:
     """
@@ -54,22 +55,44 @@ def run_multiview_videos_viser(
     server = viser.ViserServer(host="127.0.0.1", port=port)
     server.gui.configure_theme(titlebar_content=None, control_layout="collapsible")
 
+    # Reshape points.
+    if not isinstance(points, np.ndarray):
+        points = np.array(points)    
+    points = points.reshape(V, F, H * W, 3)
+    
     # Colors for each point. If images is None, set points black.
-    # Reshape other attributes.
-    colors = [[] for _ in range(V)]
-    for camera_idx in range(V):
-        for frame_idx in range(F):
-            # Make colors
-            if images is not None:
-                colors[camera_idx].append(images[camera_idx][frame_idx].reshape(-1, 3))  # shape (H*W, 3), np.uint8, range = [0, 255]
-            else:
-                colors[camera_idx].append(np.zeros_like(points[camera_idx][frame_idx].reshape(-1, 3)))  # Dummy color(black)
-            # Reshape other attributes
-            points[camera_idx][frame_idx] = points[camera_idx][frame_idx].reshape(-1, 3)  # shape (H*W, 3)
-            if masks is not None:
-                masks[camera_idx][frame_idx] = masks[camera_idx][frame_idx].reshape(-1)  # shape (H*W,)
-            if confs is not None:
-                confs[camera_idx][frame_idx] = confs[camera_idx][frame_idx].reshape(-1)  # shape (H*W,)
+    if images is not None:
+        if not isinstance(images, np.ndarray):
+            images = np.array(images)
+        images = images.reshape(V, F, H, W, 3)
+        colors = images.reshape(V, F, H * W, 3).copy()
+    else:
+        colors = np.zeros_like(points)
+    
+    # Reshape masks.
+    if masks is not None:
+        if not isinstance(masks, np.ndarray):
+            masks = np.array(masks)
+        masks = masks.reshape(V, F, H * W)
+
+    # Reshape confs.
+    if confs is not None:
+        if not isinstance(confs, np.ndarray):
+            confs = np.array(confs)
+        # Apply color map (COLORMAP_JET is commonly used)
+        conf_min = confs.min(axis=(-1, -2), keepdims=True)
+        conf_norm = (confs - conf_min) / (confs.max(axis=(-1, -2), keepdims=True) - conf_min + 1e-8)
+        conf_255 = (conf_norm * 255).astype(np.uint8)
+        conf2colors_raw = [[] for _ in range(V)]
+        conf2colors_equalized = [[] for _ in range(V)]
+        for camera_idx in range(V):
+            for frame_idx in range(F):
+                conf2colors_raw[camera_idx].append(cv2.applyColorMap(conf_255[camera_idx][frame_idx], cv2.COLORMAP_JET)[..., ::-1])  # Convert BGR to RGB
+                conf2colors_equalized[camera_idx].append(cv2.applyColorMap(cv2.equalizeHist(conf_255[camera_idx][frame_idx]), cv2.COLORMAP_JET)[..., ::-1])
+        conf2colors_raw = np.array(conf2colors_raw).reshape(V, F, H * W, 3)  # shape (V, F, H * W, 3)
+        conf2colors_equalized = np.array(conf2colors_equalized).reshape(V, F, H * W, 3)  # shape (V, F, H * W, 3)
+        # Reshape confs.
+        confs = confs.reshape(V, F, H * W)
 
     # We will store references to point_clouds $ frames & frustums so we can toggle visibility from the GUI.
     point_clouds: list[list[viser.PointCloudHandle]] = []
@@ -86,7 +109,9 @@ def run_multiview_videos_viser(
             gui_points_mask = server.gui.add_checkbox("Apply Mask", initial_value=True)
         if confs is not None:
             gui_points_conf = server.gui.add_slider("Confidence percent threshold to prune", min=0, max=100, step=0.1, initial_value=init_conf_threshold)
-        gui_prune_points = server.gui.add_slider("Prune Point Clouds", min=0, max=13, step=1, initial_value=6, 
+            gui_point_color_mode = server.gui.add_dropdown("Point Color Mode", options=("Frame", "Confidence (raw)", "Confidence (equalized)"), initial_value="Frame",
+                hint="Choose point color mode between original frame colors and other colors.")
+        gui_prune_points = server.gui.add_slider("Prune Point Clouds", min=0, max=13, step=1, initial_value=min(int(V * F / 100), 6), 
             hint="Prune point clouds by this frequency (2^value).\nHigher value means lighter visualization.\n0 is no pruning.")
         
     def apply_standard_visibility() -> None:
@@ -106,9 +131,9 @@ def run_multiview_videos_viser(
             for c in range(V):
                 cam_vis = bool(camera_vis[c].value)
                 for f in range(F):
-                    if mode == "Current":
+                    if mode == "Current frame only":
                         is_visible_step = (f == t)
-                    elif mode == "Cumulative":
+                    elif mode == "Cumulative (up to frame)":
                         is_visible_step = (f <= t)
                     else:
                         raise ValueError(f"Unknown animation mode: {mode}")
@@ -164,19 +189,18 @@ def run_multiview_videos_viser(
     # --- Animation (add) ---
     animation_folder = server.gui.add_folder("Animation")
     with animation_folder:
-        """ # This crush the server somehow.
+        # This crush the server somehow.
         gui_anim_mode = server.gui.add_dropdown(
             "Mode",
             options=("Current frame only", "Cumulative (up to frame)"),
             initial_value="Current frame only",
             hint="Choose how frames are shown during animation."
         )
-        """
-        gui_anim_mode = server.gui.add_button_group("Mode", ("Current", "Cumulative"))
+        #gui_anim_mode = server.gui.add_button_group("Mode", ("Current frame only", "Cumulative (up to frame)"), initial_value="Current frame only")
         gui_control = server.gui.add_button_group("Control", ("Start/Stop", "Init"))
         gui_skip = server.gui.add_button_group("Skip", ("<<", "<", ">", ">>"))
         gui_timestep = server.gui.add_slider("Frame", min=0, max=F - 1, step=1, initial_value=0)
-        gui_framerate = server.gui.add_slider("FPS", min=1, max=60, step=0.1, initial_value=1)
+        gui_framerate = server.gui.add_slider("FPS", min=1, max=60, step=1, initial_value=1)
     playing = {"on": False}
 
     def _set_animation_ui_enabled(enabled: bool) -> None:
@@ -322,7 +346,12 @@ def run_multiview_videos_viser(
 
                 # Apply valid_mask to the point clouds of specified index
                 point =  points[camera_idx][frame_idx][valid_mask]
-                color = colors[camera_idx][frame_idx][valid_mask]
+                if confs is not None and gui_point_color_mode.value == "Confidence (raw)":
+                    color = conf2colors_raw[camera_idx][frame_idx][valid_mask]
+                elif confs is not None and gui_point_color_mode.value == "Confidence (equalized)":
+                    color = conf2colors_equalized[camera_idx][frame_idx][valid_mask]
+                else:
+                    color = colors[camera_idx][frame_idx][valid_mask]
 
                 # Update the point cloud
                 point_clouds[camera_idx][frame_idx].points = point
@@ -342,7 +371,7 @@ def run_multiview_videos_viser(
             conf = confs[camera_idx][frame_idx]
             # Here we compute the threshold value based on the current percentage
             threshold_val = np.percentile(conf, conf_percentage)
-            conf_mask = (conf >= threshold_val) & (conf > 1e-5)
+            conf_mask = (conf >= threshold_val) #& (conf > 1e-5)
             valid_mask &= conf_mask 
 
         # Apply mask
@@ -364,6 +393,19 @@ def run_multiview_videos_viser(
         @gui_points_conf.on_update
         def _(_) -> None:
             update_point_clouds()
+        @gui_point_color_mode.on_update
+        def _(_) -> None:
+            mode = gui_point_color_mode.value  # str
+            for camera_idx in range(V):
+                for frame_idx in range(F):
+                    if mode == "Frame":
+                        point_clouds[camera_idx][frame_idx].colors = colors[camera_idx][frame_idx]
+                    elif mode == "Confidence (raw)":
+                        point_clouds[camera_idx][frame_idx].colors = conf2colors_raw[camera_idx][frame_idx]
+                    elif mode == "Confidence (equalized)":
+                        point_clouds[camera_idx][frame_idx].colors = conf2colors_equalized[camera_idx][frame_idx]
+                    else:
+                        raise ValueError(f"Unknown point color mode: {mode}")
 
     if masks is not None:
         @gui_points_mask.on_update

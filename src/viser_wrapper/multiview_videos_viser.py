@@ -17,7 +17,7 @@ def run_multiview_videos_viser(
     points: Sequence[Sequence[Float[NDArray[np.floating], "H W 3"]]] | Float[NDArray[np.floating], "V F H W 3"],
     extrinsics: Sequence[Sequence[Float[NDArray[np.floating], "3 4"]]] | Float[NDArray[np.floating], "V F 3 4"],
     intrinsics: Sequence[Sequence[Float[NDArray[np.floating], "3 3"]]] | Float[NDArray[np.floating], "V F 3 3"],
-    masks: Sequence[Sequence[Bool[NDArray[np.bool_], "H W"]]] | Float[NDArray[np.bool_], "V F H W"] | None = None,
+    masks: Sequence[Sequence[Bool[NDArray[np.bool_], "H W"]]] | Bool[NDArray[np.bool_], "V F H W"] | None = None,
     confs: Sequence[Sequence[Float[NDArray[np.floating], "H W"]]] | Float[NDArray[np.floating], "V F H W"] | None = None,
     images: Sequence[Sequence[Integer[NDArray[np.integer], "H W 3"]]] | Integer[NDArray[np.integer], "V F H W 3"] | None = None,
     port: int | None = 8080,
